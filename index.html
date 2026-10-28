@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f7f2" />
+    <meta name="description" content="Hillpulse Mesh connects people in Arunachal Pradesh with nearby emergency-care providers. This interactive prototype does not dispatch real services." />
+    <title>Hillpulse Mesh | Care, closer.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700;750&family=Manrope:wght@400;500;600;650;700;750;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="demo-ribbon"><span class="demo-dot" aria-hidden="true"></span> Prototype only · No live ambulance dispatch or verified blood inventory</div>
+
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Hillpulse Mesh home">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 42 42" fill="none"><path d="M4 29.5 15 13l7 10 5-7 11 13.5H4Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 31h22M19 11v9m-4.5-4.5h9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="19" cy="10.8" r="1.7" fill="currentColor"/></svg></span>
+        <span class="brand-name">hillpulse<span>mesh</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="nav-link active" href="#services">Find care</a>
+        <a class="nav-link" href="#network">Care network</a>
+        <a class="nav-link" href="#trust">How it works</a>
+      </nav>
+      <button class="profile-button" id="profileButton" aria-label="Open your profile"><span id="profileInitials">HP</span><span class="profile-label" id="profileLabel">My profile</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
+    </header>
+
+    <main id="home">
+      <section class="intro" id="services">
+        <div class="intro-copy">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> CARE, CLOSER TO HOME <span class="eyebrow-line"></span> ARUNACHAL PRADESH</div>
+          <h1>When it matters,<br />find help <span>nearby.</span></h1>
+          <p>Find emergency care and blood-service providers around your location. Built for the distances, roads, and communities of Arunachal Pradesh.</p>
+        </div>
+        <aside class="emergency-note" aria-label="Emergency guidance"><span class="emergency-icon" aria-hidden="true">!</span><p><strong>In an immediate emergency?</strong><br />This prototype cannot dispatch help. Call India’s emergency number <a href="tel:112">112</a>.</p><span class="note-arrow" aria-hidden="true">↗</span></aside>
+      </section>
+
+      <section class="workspace" aria-label="Find nearby care">
+        <div class="service-panel">
+          <div class="section-overline">WHAT DO YOU NEED?</div>
+          <div class="service-switch" role="group" aria-label="Select a service">
+            <button type="button" class="service-option selected" data-service="ambulance" aria-pressed="true"><span class="service-symbol ambulance-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7.5h11.5v10H3zM14.5 11h3.8l2.7 3v3.5h-6.5zM7 10v5m-2.5-2.5h5m8.2-1.5v2m-1 5a1.6 1.6 0 1 0 0-.01m7 0a1.6 1.6 0 1 0 0-.01M3 19.3h2m4 0h5m3.7 0h.6m3.7 0h.4"/></svg></span><span><strong>Ambulance</strong><small>Request emergency transport</small></span><svg class="service-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 5 5-5 5"/></svg></button>
+            <button type="button" class="service-option" data-service="blood" aria-pressed="false"><span class="service-symbol blood-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.5S5.7 10 5.7 14.5a6.3 6.3 0 0 0 12.6 0C18.3 10 12 3.5 12 3.5Z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/></svg></span><span><strong>Blood services</strong><small>Ask about an available blood group</small></span><svg class="service-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 5 5-5 5"/></svg></button>
+          </div>
+
+          <div class="location-block">
+            <label class="section-overline" for="locationSearch">YOUR AREA</label>
+            <div class="location-input-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 8.3c0 4.1-6 9-6 9s-6-4.9-6-9a6 6 0 1 1 12 0Z"/><circle cx="10" cy="8" r="2"/></svg><input id="locationSearch" list="townOptions" value="Itanagar" autocomplete="off" placeholder="Search a town or district" aria-describedby="locationHelp" /><datalist id="townOptions"><option value="Itanagar"></option><option value="Naharlagun"></option><option value="Ziro"></option><option value="Tawang"></option><option value="Bomdila"></option><option value="Pasighat"></option><option value="Aalo"></option><option value="Roing"></option><option value="Tezu"></option></datalist><button class="gps-button" id="gpsButton" type="button" aria-label="Use my current location" title="Use my current location"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5.6"/><circle cx="10" cy="10" r="1.8"/><path d="M10 2v3m0 10v3M2 10h3m10 0h3"/></svg></button></div>
+            <p class="input-hint" id="locationHelp"><span class="privacy-lock" aria-hidden="true">◈</span> Location is only used after you choose to share it.</p>
+            <label class="radius-label" for="radiusRange"><span>Search radius</span><span class="radius-value" id="radiusValue">20 km</span></label>
+            <input id="radiusRange" class="radius-range" type="range" min="5" max="20" step="5" value="20" aria-label="Search radius in kilometres" />
+            <div class="range-endpoints"><span>5 km</span><span>Within your community</span><span>20 km</span></div>
+          </div>
+
+          <div class="results-heading"><span class="section-overline" id="resultsTitle">NEARBY PROVIDERS</span><span class="results-count" id="resultsCount">—</span></div>
+          <div class="provider-results" id="providerResults" aria-live="polite"></div>
+          <p class="directory-caveat">Example locations only. Provider listings, availability, and distances are not verified.</p>
+        </div>
+
+        <div class="map-panel" id="network">
+          <div class="map-topline"><div><span class="map-indicator"></span> <span id="mapStatus">SHOWING EXAMPLE LOCATIONS</span></div><button class="map-expand" id="mapRefresh" type="button" title="Refresh nearby results"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 7a6.5 6.5 0 0 0-11.2-2L3.5 7m0 0V3.5M3.5 7H7m-3 6a6.5 6.5 0 0 0 11.2 2L16.5 13m0 0v3.5m0-3.5H13"/></svg><span>Refresh</span></button></div>
+          <div id="map" role="application" aria-label="Map of example care locations in Arunachal Pradesh"></div>
+          <div class="map-legend"><span><i class="legend-marker ambulance-legend"></i><span id="ambulanceLegendLabel">Ambulance · example</span></span><span><i class="legend-marker blood-legend"></i>Blood service · example</span><span class="legend-radius"><i></i>20 km</span></div>
+          <div class="terrain-tag"><span aria-hidden="true">⌁</span> Arunachal Pradesh · India</div>
+        </div>
+      </section>
+
+      <section class="workflow" aria-label="Select your role">
+        <div class="workflow-heading"><div><div class="section-overline">A NETWORK THAT WORKS BOTH WAYS</div><h2>Care starts with a connection.</h2></div><p>Are you looking for help, or providing it?</p></div>
+        <div class="role-grid">
+          <article class="role-card seeker-card"><span class="role-index">01 / FOR PEOPLE SEEKING CARE</span><span class="role-icon seeker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s-8-4.7-8-11.1A4.9 4.9 0 0 1 12 7a4.9 4.9 0 0 1 8 2.9C20 16.3 12 21 12 21Z"/><path d="M9 12h6m-3-3v6"/></svg></span><h3>Looking for help?</h3><p>Choose an ambulance request or contact a nearby blood-service provider. Your location is shared only with your permission.</p><button class="role-cta seeker-cta" id="seekerButton" type="button">Get started <span aria-hidden="true">→</span></button></article>
+          <article class="role-card provider-card"><span class="role-index">02 / FOR CARE PROVIDERS</span><span class="role-icon provider-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20.5h16M6 20V7l6-3 6 3v13M9 10h.01M15 10h.01M9 13h.01m6-.01h.01M10 20v-4h4v4"/></svg></span><h3>Part of the care network?</h3><p>Register a hospital, ambulance, or blood-service listing. Entries here are examples, not reviewed or verified submissions.</p><button class="role-cta provider-cta" id="providerButton" type="button">Register a provider <span aria-hidden="true">→</span></button></article>
+        </div>
+        <div class="workflow-footnote"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 4v3.3c0 3-2.1 5.5-5 6.9-2.9-1.4-5-3.9-5-6.9V4l5-2.2Z"/><path d="m5.7 7.9 1.5 1.5 3.2-3.2"/></svg> Hillpulse Mesh is a community service concept. Public registration is not government endorsement or identity verification.</div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="trust"><a class="footer-brand" href="#home">hillpulse<span>mesh</span></a><span>Thoughtful connections for hard-to-reach communities.</span><a class="footer-emergency" href="tel:112">India emergency number: 112 <span aria-hidden="true">↗</span></a><span class="footer-legal">Prototype · Not an emergency-service provider</span></footer>
+
+    <dialog class="site-dialog" id="profileDialog" aria-labelledby="profileTitle"><form class="dialog-card" id="profileForm"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><div class="dialog-kicker">A LITTLE ABOUT YOU</div><h2 id="profileTitle">Welcome to the mesh.</h2><p class="dialog-intro">Create an on-device demo profile to explore the seeker and provider flows. Your profile stays in this browser.</p><label class="field-label" for="personName">Your name</label><input class="text-field" id="personName" name="name" autocomplete="name" maxlength="60" required placeholder="Name"/><label class="field-label" for="personDob">Date of birth</label><input class="text-field" id="personDob" name="dob" type="date" required/><label class="field-label" for="personAge">Age · calculated from date of birth</label><input class="text-field" id="personAge" type="text" placeholder="Select your date of birth" readonly aria-live="polite"/><label class="field-label" for="personRole">I am here as</label><select class="text-field" id="personRole" name="role"><option value="seeker">Someone seeking care</option><option value="provider">A care provider</option></select><div class="verification-notice"><strong>Identity verification is not available here.</strong><br />Never enter an Aadhaar, PAN, or ABHA number or OTP in this prototype. Secure government-authorised verification would require a separately contracted, compliant backend.</div><button class="primary-submit" type="submit">Continue to the demo <span aria-hidden="true">→</span></button><p class="dialog-footnote">This demo profile is stored in this browser only. Avoid entering sensitive personal information.</p></form></dialog>
+
+    <dialog class="site-dialog" id="ambulanceDialog" aria-labelledby="ambulanceTitle"><form class="dialog-card" id="ambulanceForm"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><div class="dialog-kicker urgent-kicker">AMBULANCE · DEMO REQUEST</div><h2 id="ambulanceTitle">Request transport.</h2><p class="dialog-intro">Choose your location and review example ambulance listings. Submitting will not notify a dispatcher or arrange transport.</p><div class="location-confirmation"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 8.3c0 4.1-6 9-6 9s-6-4.9-6-9a6 6 0 1 1 12 0Z"/><circle cx="10" cy="8" r="2"/></svg><span id="ambulanceLocation">Itanagar</span><span class="confirmation-status" id="locationConfirmStatus">Area selected</span></div><label class="field-label" for="emergencyNote">Optional note for this demo</label><input class="text-field" id="emergencyNote" maxlength="100" placeholder="e.g. Roadside injury" /><label class="optional-photo"><input type="file" id="emergencyPhoto" accept="image/*" capture="environment" /><span class="photo-icon" aria-hidden="true">＋</span><span><strong>Add a photo (optional)</strong><small>Only opens your camera or photos if you choose</small></span></label><div class="verification-notice urgent-notice"><strong>This is not a real ambulance request.</strong> In an emergency, call <a href="tel:112">112</a>. Never rely on this demo for medical care.</div><button class="primary-submit urgent-submit" type="submit">Record demo request <span aria-hidden="true">→</span></button></form></dialog>
+
+    <dialog class="site-dialog" id="bloodDialog" aria-labelledby="bloodTitle"><form class="dialog-card" id="bloodForm"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><div class="dialog-kicker">BLOOD SERVICES · DEMO INQUIRY</div><h2 id="bloodTitle">Ask about availability.</h2><p class="dialog-intro">A demo inquiry is saved in this browser only. Nothing is sent to a hospital and no inventory has been verified.</p><label class="field-label" for="bloodGroup">Blood group needed</label><select class="text-field" id="bloodGroup" required><option value="">Choose a blood group</option><option>A+</option><option>A−</option><option>B+</option><option>B−</option><option>AB+</option><option>AB−</option><option>O+</option><option>O−</option></select><label class="field-label" for="bloodDate">When would you like to visit?</label><input class="text-field" id="bloodDate" type="date" required/><label class="field-label" for="bloodHospital">Nearby example provider</label><select class="text-field" id="bloodHospital" required></select><div class="verification-notice"><strong>Please call the provider independently.</strong> This demo cannot check blood availability or confirm an appointment.</div><button class="primary-submit" type="submit">Record demo inquiry <span aria-hidden="true">→</span></button></form></dialog>
+
+    <dialog class="site-dialog" id="providerDialog" aria-labelledby="providerTitle"><form class="dialog-card" id="providerForm"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><div class="dialog-kicker">CARE PROVIDER NETWORK</div><h2 id="providerTitle">List your services.</h2><p class="dialog-intro">Submit an example listing in this browser. Registration numbers and services are not independently verified.</p><label class="field-label" for="facilityName">Hospital or provider name</label><input class="text-field" id="facilityName" maxlength="80" required placeholder="Provider name"/><label class="field-label" for="facilityReg">Provider registration number</label><input class="text-field" id="facilityReg" maxlength="50" required placeholder="As issued by the relevant authority"/><label class="field-label" for="facilityTown">Town</label><input class="text-field" id="facilityTown" list="townOptions" required placeholder="e.g. Itanagar"/><fieldset class="service-checks"><legend>Services offered</legend><label><input type="checkbox" name="service" value="ambulance"/> <span>Ambulance</span></label><label><input type="checkbox" name="service" value="blood"/> <span>Blood service</span></label></fieldset><label class="field-label" for="facilityPhone">Contact phone number</label><input class="text-field" id="facilityPhone" type="tel" autocomplete="tel" maxlength="20" required placeholder="Provider contact number"/><button class="primary-submit" type="submit">Save example listing <span aria-hidden="true">→</span></button><p class="dialog-footnote">Listings are saved only in this browser and are not reviewed, published, or shared.</p></form></dialog>
+
+    <dialog class="site-dialog" id="confirmationDialog" aria-labelledby="confirmationTitle"><div class="dialog-card confirmation-card"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><span class="confirmation-mark" aria-hidden="true">✓</span><div class="dialog-kicker" id="confirmationKicker">DEMO ONLY</div><h2 id="confirmationTitle">Recorded on this device.</h2><p class="dialog-intro" id="confirmationMessage">This example request was saved in your browser. No emergency service was notified.</p><button class="primary-submit" type="button" data-close>Back to Hillpulse Mesh <span aria-hidden="true">→</span></button></div></dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+  </body>
+</html>
