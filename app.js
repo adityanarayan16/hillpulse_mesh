@@ -21,6 +21,9 @@ const state = {
   hasSelectedLocation: false,
   geoWatchId: null,
   facilities: [],
+  donors: [],
+  donorOpportunities: [],
+  donorProfile: null,
   currentUser: null,
   profileMode: "signup",
   toastTimeout: null,
@@ -78,6 +81,8 @@ function renderDirectory() {
 
   if (!providers.length) {
     directory.innerHTML = `<p class="directory-empty">No listed facilities within ${state.radiusKm} km of ${safeText(state.locationName)}. Try a wider search radius or select another town.</p>`;
+    renderVerifiedDonors();
+    renderDonorOpportunities();
     return;
   }
 
@@ -88,6 +93,54 @@ function renderDirectory() {
       <p class="facility-location">${safeText(provider.town)} · ${safeText(provider.district || "Arunachal Pradesh")} district</p>
       <p class="facility-contact">${isBloodDirectory ? "Contact the facility to confirm donation services and availability." : "Contact the facility to confirm services and ambulance availability."}</p>
       <a class="facility-search" href="https://www.google.com/search?q=${encodeURIComponent(`${provider.name} ${provider.town} official contact`)}" target="_blank" rel="noreferrer">Find contact details <span aria-hidden="true">↗</span></a>
+    </article>`).join("");
+  renderVerifiedDonors();
+  renderDonorOpportunities();
+}
+
+function renderVerifiedDonors() {
+  const donors = state.donors.map((donor) => {
+    const town = Object.keys(towns).find((name) => name.toLowerCase() === donor.town.toLowerCase());
+    if (!town) return null;
+    return { ...donor, distance: haversineKm(state.coordinates, towns[town].coordinates) };
+  }).filter((donor) => donor && donor.distance <= state.radiusKm)
+    .sort((left, right) => left.distance - right.distance);
+  $("#verifiedDonorCount").textContent = `${donors.length} verified ${donors.length === 1 ? "donor" : "donors"} within ${state.radiusKm} km`;
+
+  if (!donors.length) {
+    $("#verifiedDonorList").innerHTML = '<p class="donor-empty">No verified donors have opted into a public listing within this radius yet.</p>';
+    return;
+  }
+
+  $("#verifiedDonorList").innerHTML = donors.map((donor) => {
+    const lastDonation = donor.lastDonationDate
+      ? new Date(`${donor.lastDonationDate}T12:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+      : "Not provided";
+    return `<article class="verified-donor-card"><div class="verified-donor-card-top"><span class="verified-badge">REVIEWED PROFILE</span><span class="donor-availability-status">${donor.available ? "Open to contact" : "Unavailable"}</span></div><h4>${safeText(donor.name)}</h4><span class="donor-blood-type">${safeText(donor.bloodGroup)}</span><p>${safeText(donor.town)} · ${donor.distance.toFixed(1)} km approximate</p><p class="donor-last-date">Last donated (self-reported): <strong>${safeText(lastDonation)}</strong></p></article>`;
+  }).join("");
+}
+
+function renderDonorOpportunities() {
+  const opportunities = state.donorOpportunities.map((request) => {
+    const town = Object.keys(towns).find((name) => name.toLowerCase() === request.town.toLowerCase());
+    if (!town) return null;
+    return { ...request, distance: haversineKm(state.coordinates, towns[town].coordinates) };
+  }).filter((request) => request && request.distance <= state.radiusKm);
+  $("#donorOpportunityCount").textContent = `${opportunities.length} open ${opportunities.length === 1 ? "request" : "requests"} within ${state.radiusKm} km`;
+
+  if (!opportunities.length) {
+    $("#donorOpportunityList").innerHTML = '<p class="donor-empty">No reviewed requests are currently open for donors in this area.</p>';
+    return;
+  }
+
+  const urgencyLabels = { immediate: "As soon as possible", "within-6-hours": "Within 6 hours", today: "Within 24 hours", planned: "Planned" };
+  $("#donorOpportunityList").innerHTML = opportunities.map((request) => `
+    <article class="donor-opportunity-card">
+      <div class="opportunity-card-top"><span class="opportunity-badge">REVIEWED REQUEST</span><span class="facility-distance">${request.distance.toFixed(1)} km · approximate</span></div>
+      <div class="opportunity-main"><span class="donor-blood-type">${safeText(request.bloodGroup)}</span><div><h4>${request.units} ${request.units === 1 ? "unit" : "units"} requested</h4><p>${safeText(request.facility)} · ${safeText(request.town)}</p></div></div>
+      <p class="opportunity-urgency urgency-${safeText(request.urgency)}">Needed: <strong>${safeText(urgencyLabels[request.urgency] || request.urgency)}</strong></p>
+      <button class="opportunity-respond ${request.hasResponded ? "response-received" : ""}" type="button" data-donor-opportunity="${safeText(request.id)}" ${request.hasResponded ? "disabled" : ""}>${request.hasResponded ? "Response recorded" : "Respond to donate"}<span aria-hidden="true">${request.hasResponded ? "✓" : "→"}</span></button>
+      <p class="opportunity-response-count">${request.responseCount} donor ${request.responseCount === 1 ? "response" : "responses"} received</p>
     </article>`).join("");
 }
 
@@ -284,7 +337,53 @@ function openBloodRequest() {
   openDialog($("#bloodDialog"));
 }
 
-function initialize() {
+async function loadPublicDonors() {
+  try {
+    state.donors = (await apiRequest("/api/donors")).donors;
+  } catch (error) {
+    $("#verifiedDonorCount").textContent = "Donor list unavailable";
+    $("#verifiedDonorList").innerHTML = `<p class="donor-empty">${safeText(error.message)}</p>`;
+    return;
+  }
+  renderVerifiedDonors();
+}
+
+async function loadDonorOpportunities() {
+  try {
+    state.donorOpportunities = (await apiRequest("/api/donor-opportunities")).opportunities;
+    renderDonorOpportunities();
+  } catch (error) {
+    $("#donorOpportunityCount").textContent = "Requests unavailable";
+    $("#donorOpportunityList").innerHTML = `<p class="donor-empty">${safeText(error.message)}</p>`;
+  }
+}
+
+async function openDonorProfile() {
+  if (!state.currentUser) {
+    showToast("Log in or create an account to register as a donor.");
+    openLogin();
+    return;
+  }
+  try {
+    state.donorProfile = (await apiRequest("/api/me/donor-profile")).donor;
+    const donor = state.donorProfile;
+    $("#donorDisplayName").value = donor?.name || state.currentUser.name;
+    $("#donorBloodGroup").value = donor?.bloodGroup || "";
+    $("#donorTown").value = donor?.town || state.currentUser.town || state.locationName;
+    $("#donorLastDate").value = donor?.lastDonationDate || "";
+    $("#donorLastDate").max = new Date().toISOString().slice(0, 10);
+    $("#donorAvailable").checked = donor ? donor.available : true;
+    $("#donorPublicConsent").checked = donor ? donor.consentPublic : false;
+    $("#donorPublicConsent").required = !donor;
+    $("#donorFormTitle").textContent = donor ? "Update donor profile." : "Become a donor.";
+    $("#donorReviewStatus").textContent = donor ? `Current listing status: ${donor.status.replaceAll("_", " ")}.` : "New profiles require review before appearing in the directory.";
+    openDialog($("#donorDialog"));
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function initialize() {
   document.querySelectorAll(".service-option").forEach((button) => button.addEventListener("click", () => setService(button.dataset.service)));
   $("#locationSearch").addEventListener("change", (event) => setTown(event.target.value));
   $("#locationSearch").addEventListener("keydown", (event) => {
@@ -308,6 +407,7 @@ function initialize() {
       await apiRequest("/api/auth/logout", { method: "POST" });
       state.currentUser = null;
       updateAccountUI();
+      await loadDonorOpportunities();
       showToast("You have signed out.");
     } catch (error) {
       showToast(error.message);
@@ -324,6 +424,7 @@ function initialize() {
       state.currentUser = user;
       updateAccountUI();
       $("#loginDialog").close();
+      await loadDonorOpportunities();
       showToast(user.status === "verified" ? "Signed in." : "Signed in. Your account is not verified.");
     } catch (error) {
       showToast(error.message);
@@ -381,6 +482,53 @@ function initialize() {
     }
   });
   $("#donorRequestButton").addEventListener("click", openBloodRequest);
+  $("#becomeDonorButton").addEventListener("click", openDonorProfile);
+  $("#donorOpportunityList").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-donor-opportunity]");
+    if (!button) return;
+    if (!state.currentUser) {
+      showToast("Log in with a reviewed donor account to respond.");
+      openLogin();
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await apiRequest(`/api/donor-opportunities/${button.dataset.donorOpportunity}/respond`, { method: "POST" });
+      showToast(`${result.message} Response ID: ${result.response.id.slice(0, 8)}.`);
+      await loadDonorOpportunities();
+    } catch (error) {
+      button.disabled = false;
+      showToast(error.message);
+    }
+  });
+  $("#donorProfileForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const isUpdating = Boolean(state.donorProfile);
+    try {
+      const result = await apiRequest("/api/me/donor-profile", {
+        method: isUpdating ? "PUT" : "POST",
+        body: JSON.stringify({
+          name: $("#donorDisplayName").value.trim(),
+          bloodGroup: $("#donorBloodGroup").value,
+          town: $("#donorTown").value.trim(),
+          lastDonationDate: $("#donorLastDate").value,
+          available: $("#donorAvailable").checked,
+          consentPublic: $("#donorPublicConsent").checked,
+        }),
+      });
+      $("#donorDialog").close();
+      await loadPublicDonors();
+      await loadDonorOpportunities();
+      const message = $("#donorPublicConsent").checked
+        ? "Your donor profile is pending review. It will only appear publicly after approval."
+        : "Your profile is now hidden from the public donor directory.";
+      showConfirmation(message, "DONOR PROFILE UPDATED");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
   $("#ambulanceForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
@@ -416,6 +564,7 @@ function initialize() {
           bloodGroup: $("#bloodGroup").value,
           units: Number($("#bloodUnits").value),
           urgency: $("#bloodUrgency").value,
+          shareForDonors: $("#bloodShareConsent").checked,
         }),
       });
       $("#bloodDialog").close();
@@ -426,11 +575,32 @@ function initialize() {
     }
   });
 
-  $("#providerButton").addEventListener("click", () => openDialog($("#providerAccessDialog")));
-  $("#bloodStaffSignup").addEventListener("click", () => {
-    $("#bloodDialog").close();
-    openDialog($("#providerAccessDialog"));
+  $("#feedbackForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    $("#feedbackStatus").textContent = "Sending feedback…";
+    try {
+      await apiRequest("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          name: $("#feedbackName").value.trim(),
+          email: $("#feedbackEmail").value.trim(),
+          comment: $("#feedbackComment").value.trim(),
+        }),
+      });
+      form.reset();
+      $("#feedbackStatus").textContent = "Thanks for your feedback. It was sent to the site team for review.";
+    } catch (error) {
+      $("#feedbackStatus").textContent = error.message;
+    } finally {
+      submitButton.disabled = false;
+    }
   });
+
+  $("#providerButton").addEventListener("click", () => openDialog($("#providerAccessDialog")));
   $("#accessRole").addEventListener("change", (event) => {
     const registration = {
       hospital: ["Facility registration number", "Relevant facility registration"],
@@ -440,7 +610,7 @@ function initialize() {
     $("#accessRegistrationLabel").textContent = registration[0];
     $("#accessRegistration").placeholder = registration[1];
   });
-  $("#providerAccessForm").addEventListener("submit", (event) => {
+  $("#providerAccessForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
@@ -449,54 +619,26 @@ function initialize() {
       showToast("Choose a listed Arunachal Pradesh town.");
       return;
     }
-    const application = {
-      id: `DEMO-ACCESS-${Date.now().toString(36).toUpperCase()}`,
-      role: $("#accessRole").value,
-      name: $("#accessName").value.trim(),
-      facility: $("#accessFacility").value.trim(),
-      registrationNumber: $("#accessRegistration").value.trim(),
-      town: selectedTown,
-      workEmail: $("#accessEmail").value.trim(),
-      status: "pending-verification-demo",
-      createdAt: new Date().toISOString(),
-    };
-    const saved = saveData("providerApplications", [...(getSavedData().providerApplications || []), application]);
-    if (saved) {
+    try {
+      const { user } = await apiRequest("/api/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({
+          role: $("#accessRole").value,
+          name: $("#accessName").value.trim(),
+          facility: $("#accessFacility").value.trim(),
+          registrationNumber: $("#accessRegistration").value.trim(),
+          town: selectedTown,
+          email: $("#accessEmail").value.trim(),
+          password: $("#accessPassword").value,
+        }),
+      });
+      state.currentUser = user;
+      updateAccountUI();
       $("#providerAccessDialog").close();
       form.reset();
-      updateBloodRequesters();
-      showConfirmation("Your provider access application was saved only in this browser. It was not sent to an administrator, verified, or activated. You cannot use this prototype to submit a genuine clinical request.", "NOT SENT · PENDING DEMO");
-    }
-  });
-  $("#providerForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const services = [...form.querySelectorAll('input[name="service"]:checked')].map((checkbox) => checkbox.value);
-    const selectedTown = Object.keys(towns).find((town) => town.toLowerCase() === $("#facilityTown").value.trim().toLowerCase());
-    if (!form.reportValidity()) return;
-    if (!selectedTown) {
-      showToast("Choose a listed Arunachal Pradesh town.");
-      return;
-    }
-    if (!services.length) {
-      showToast("Select at least one service.");
-      return;
-    }
-    const facility = {
-      id: `demo-provider-${Date.now().toString(36)}`,
-      name: $("#facilityName").value.trim(),
-      registrationNumber: $("#facilityReg").value.trim(),
-      town: selectedTown,
-      coordinates: towns[selectedTown].coordinates,
-      services,
-      phone: $("#facilityPhone").value.trim(),
-    };
-    const saved = saveData("facilities", [...(getSavedData().facilities || []), facility]);
-    if (saved) {
-      $("#providerDialog").close();
-      form.reset();
-      renderDirectory();
-      showConfirmation("Your example listing was saved in this browser only. It has not been verified, published, or shared with care seekers.", "NOT PUBLISHED · DEMO ONLY");
+      showConfirmation("Your account is active for sign-in, but your professional status is pending independent review. Requests are stored without notifying hospitals or donors.", "ACCOUNT CREATED · PENDING REVIEW");
+    } catch (error) {
+      showToast(error.message);
     }
   });
 
@@ -507,7 +649,18 @@ function initialize() {
     });
     dialog.addEventListener("close", () => dialog.querySelector("form")?.reset());
   });
-  updateProfileUI();
+  try {
+    state.facilities = (await apiRequest("/api/facilities")).facilities.map((facility) => ({
+      ...facility,
+      coordinates: [facility.latitude, facility.longitude],
+    }));
+  } catch (error) {
+    showToast(`Could not load the care directory: ${error.message}`);
+  }
+  renderDirectory();
+  await loadCurrentUser();
+  await loadPublicDonors();
+  await loadDonorOpportunities();
 }
 
 document.addEventListener("DOMContentLoaded", initialize);
