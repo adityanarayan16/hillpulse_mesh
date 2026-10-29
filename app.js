@@ -220,6 +220,7 @@ function calculateAge(dateOfBirth) {
 
 function setService(service) {
   state.service = service;
+  $("#ambulanceAction").hidden = service !== "ambulance";
   document.querySelectorAll(".service-option").forEach((button) => {
     const selected = button.dataset.service === service;
     button.classList.toggle("selected", selected);
@@ -335,6 +336,17 @@ function openBloodRequest() {
   setService("blood");
   updateBloodProviders();
   openDialog($("#bloodDialog"));
+}
+
+function openAmbulanceRequest() {
+  if (!state.currentUser) {
+    showToast("Log in or create an account to submit an ambulance request.");
+    openLogin();
+    return;
+  }
+  $("#ambulanceLocation").textContent = state.locationName;
+  $("#locationConfirmStatus").textContent = state.userSelectedGps ? "Location shared" : "Area selected";
+  openDialog($("#ambulanceDialog"));
 }
 
 async function loadPublicDonors() {
@@ -467,20 +479,8 @@ async function initialize() {
     $("#personAge").value = age === "" ? "" : `${age} years`;
   });
 
-  $("#seekerButton").addEventListener("click", () => {
-    if (!state.currentUser) {
-      showToast("Log in or create an account to submit a request.");
-      openLogin();
-      return;
-    }
-    if (state.service === "ambulance") {
-      $("#ambulanceLocation").textContent = state.locationName;
-      $("#locationConfirmStatus").textContent = state.userSelectedGps ? "Location shared" : "Area selected";
-      openDialog($("#ambulanceDialog"));
-    } else {
-      openBloodRequest();
-    }
-  });
+  $("#seekerButton").addEventListener("click", () => state.service === "ambulance" ? openAmbulanceRequest() : openBloodRequest());
+  $("#ambulanceRequestButton").addEventListener("click", openAmbulanceRequest);
   $("#donorRequestButton").addEventListener("click", openBloodRequest);
   $("#becomeDonorButton").addEventListener("click", openDonorProfile);
   $("#donorOpportunityList").addEventListener("click", async (event) => {
