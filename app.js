@@ -12,20 +12,6 @@ const towns = {
   Tezu: { coordinates: [27.9258, 96.1650], label: "Tezu, Lohit" },
 };
 
-const demoProviders = [
-  { id: "facility-trihms", name: "Tomo Riba Institute of Health and Medical Sciences", town: "Naharlagun", district: "Papum Pare", coordinates: [27.1044, 93.6950], services: ["ambulance", "blood"] },
-  { id: "facility-rkmh", name: "Ramakrishna Mission Hospital", town: "Itanagar", district: "Papum Pare", coordinates: [27.0844, 93.6053], services: ["ambulance", "blood"] },
-  { id: "facility-ziro", name: "District Hospital, Ziro", town: "Ziro", district: "Lower Subansiri", coordinates: [27.5467, 93.8195], services: ["ambulance", "blood"] },
-  { id: "facility-tawang", name: "District Hospital, Tawang", town: "Tawang", district: "Tawang", coordinates: [27.5861, 91.8594], services: ["ambulance", "blood"] },
-  { id: "facility-pasighat", name: "Bakin Pertin General Hospital", town: "Pasighat", district: "East Siang", coordinates: [28.0665, 95.3268], services: ["ambulance", "blood"] },
-  { id: "facility-bomdila", name: "District Hospital, Bomdila", town: "Bomdila", district: "West Kameng", coordinates: [27.2645, 92.4159], services: ["ambulance", "blood"] },
-  { id: "facility-aalo", name: "District Hospital, Aalo", town: "Aalo", district: "West Siang", coordinates: [28.1683, 94.8007], services: ["ambulance", "blood"] },
-  { id: "facility-roing", name: "General Hospital, Roing", town: "Roing", district: "Lower Dibang Valley", coordinates: [28.1482, 95.8410], services: ["ambulance", "blood"] },
-  { id: "facility-tezu", name: "District Hospital, Tezu", town: "Tezu", district: "Lohit", coordinates: [27.9258, 96.1650], services: ["ambulance", "blood"] },
-];
-
-const storageKey = "hillpulse-mesh-demo-v1";
-const sessionKey = "hillpulse-mesh-session-v1";
 const state = {
   service: "ambulance",
   locationName: "Itanagar",
@@ -34,28 +20,23 @@ const state = {
   userSelectedGps: false,
   hasSelectedLocation: false,
   geoWatchId: null,
+  facilities: [],
+  currentUser: null,
+  profileMode: "signup",
   toastTimeout: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
-const getSavedData = () => {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey) || "{}") || {};
-  } catch {
-    return {};
-  }
-};
-const saveData = (key, value) => {
-  try {
-    const data = getSavedData();
-    data[key] = value;
-    localStorage.setItem(storageKey, JSON.stringify(data));
-    return true;
-  } catch {
-    showToast("Your browser couldn't save this demo record.");
-    return false;
-  }
-};
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    ...options,
+    headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "The server could not complete this request.");
+  return result;
+}
 
 function safeText(value) {
   const element = document.createElement("span");
@@ -64,8 +45,7 @@ function safeText(value) {
 }
 
 function getProviders() {
-  const savedFacilities = getSavedData().facilities || [];
-  return [...demoProviders, ...savedFacilities];
+  return state.facilities;
 }
 
 function haversineKm(from, to) {
@@ -129,80 +109,50 @@ function openDialog(dialog) {
   if (!dialog.open) dialog.showModal();
 }
 
-function updateProfileUI() {
-  const profile = getSavedData().profile;
-  if (!profile) return;
-  const initials = profile.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
-  $("#profileInitials").textContent = initials || "HP";
-  $("#profileLabel").textContent = profile.name.split(/\s+/)[0];
-}
-
-function getDemoAccounts() {
-  const data = getSavedData();
-  const accounts = [];
-  if (data.profile) {
-    accounts.push({ id: "community-profile", name: data.profile.name, role: "community", isProfile: true });
-  }
-  (data.providerApplications || []).forEach((application) => {
-    accounts.push({ id: application.id, name: application.name, role: application.role, isProfile: false });
-  });
-  return accounts;
-}
-
-function getActiveDemoAccount() {
-  try {
-    const activeId = sessionStorage.getItem(sessionKey);
-    return getDemoAccounts().find((account) => account.id === activeId) || null;
-  } catch {
-    return null;
-  }
-}
-
-function setDemoSession(accountId) {
-  try {
-    sessionStorage.setItem(sessionKey, accountId);
-    updateAccountUI();
-    return true;
-  } catch {
-    showToast("Demo session storage is unavailable in this browser.");
-    return false;
-  }
-}
-
 function updateAccountUI() {
-  const account = getActiveDemoAccount();
-  $("#loginButton").hidden = Boolean(account);
-  $("#signupButton").hidden = Boolean(account);
-  $("#profileButton").hidden = !account;
-  $("#logoutButton").hidden = !account;
-  if (!account) return;
+  const user = state.currentUser;
+  $("#loginButton").hidden = Boolean(user);
+  $("#signupButton").hidden = Boolean(user);
+  $("#profileButton").hidden = !user;
+  $("#logoutButton").hidden = !user;
+  if (!user) return;
 
-  const initials = account.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+  const initials = user.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
   $("#profileInitials").textContent = initials || "HP";
-  $("#profileLabel").textContent = account.isProfile ? "My profile" : `${account.role} · demo`;
-  $("#profileButton").setAttribute("aria-label", account.isProfile ? "Open your profile" : `Demo account for ${account.name}; pending verification`);
+  $("#profileLabel").textContent = user.role === "community" ? "My profile" : `${user.role}${user.status === "verified" ? "" : " · pending"}`;
+  $("#profileButton").setAttribute("aria-label", user.status === "verified" ? `Open ${user.role} profile` : `${user.role} account pending verification`);
 }
 
-function openDemoLogin() {
-  const accounts = getDemoAccounts();
-  const select = $("#loginAccount");
-  select.innerHTML = accounts.length
-    ? '<option value="">Choose a local demo profile</option>' + accounts.map((account) => `<option value="${safeText(account.id)}">${safeText(account.name)} · ${safeText(account.role)}${account.isProfile ? "" : " · pending verification"}</option>`).join("")
-    : '<option value="">No demo profiles found</option>';
-  $("#loginSubmit").disabled = accounts.length === 0;
+async function loadCurrentUser() {
+  try {
+    state.currentUser = (await apiRequest("/api/me")).user;
+  } catch (error) {
+    state.currentUser = null;
+    if (!error.message.includes("Sign in")) showToast(error.message);
+  }
+  updateAccountUI();
+}
+
+function openLogin() {
+  $("#loginForm").reset();
   openDialog($("#loginDialog"));
 }
 
 function openProfileEditor() {
-  const profile = getSavedData().profile;
-  const isEditing = Boolean(profile);
-  $("#personName").value = profile?.name || "";
-  $("#personDob").value = profile?.dateOfBirth || "";
+  const user = state.currentUser;
+  const isEditing = Boolean(user);
+  state.profileMode = isEditing ? "edit" : "signup";
+  $("#personName").value = user?.name || "";
+  $("#personDob").value = user?.dateOfBirth || "";
+  $("#personEmail").value = user?.email || "";
+  $("#personEmail").readOnly = isEditing;
+  $("#profilePasswordField").hidden = isEditing;
+  $("#personPassword").required = !isEditing;
+  $("#personPassword").value = "";
   const age = calculateAge($("#personDob").value);
   $("#personAge").value = age === "" ? "" : `${age} years`;
-  $("#personRole").value = profile?.role || "seeker";
   $("#profileTitle").textContent = isEditing ? "Edit your profile." : "Welcome to the mesh.";
-  $("#profileSubmitLabel").textContent = isEditing ? "Save changes" : "Continue to the demo";
+  $("#profileSubmitLabel").textContent = isEditing ? "Save changes" : "Create account";
   openDialog($("#profileDialog"));
 }
 
