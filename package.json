@@ -1,0 +1,12 @@
+{
+  "name": "hillpulse-mesh",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hillpulse Mesh care directory and coordination prototype",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

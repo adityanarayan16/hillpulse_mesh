@@ -13,24 +13,19 @@ const towns = {
 };
 
 const demoProviders = [
-  { id: "sample-itanagar-ambulance", name: "Example ambulance provider", town: "Itanagar", coordinates: [27.0844, 93.6053], services: ["ambulance"] },
-  { id: "sample-itanagar-blood", name: "Example blood-service provider", town: "Itanagar", coordinates: [27.096, 93.613], services: ["blood"] },
-  { id: "sample-naharlagun-ambulance", name: "Example ambulance provider", town: "Naharlagun", coordinates: [27.1044, 93.6950], services: ["ambulance"] },
-  { id: "sample-naharlagun-blood", name: "Example blood-service provider", town: "Naharlagun", coordinates: [27.111, 93.7], services: ["blood"] },
-  { id: "sample-ziro-ambulance", name: "Example ambulance provider", town: "Ziro", coordinates: [27.5467, 93.8195], services: ["ambulance"] },
-  { id: "sample-ziro-blood", name: "Example blood-service provider", town: "Ziro", coordinates: [27.55, 93.825], services: ["blood"] },
-  { id: "sample-tawang-ambulance", name: "Example ambulance provider", town: "Tawang", coordinates: [27.5861, 91.8594], services: ["ambulance"] },
-  { id: "sample-tawang-blood", name: "Example blood-service provider", town: "Tawang", coordinates: [27.591, 91.866], services: ["blood"] },
-  { id: "sample-bomdila-ambulance", name: "Example ambulance provider", town: "Bomdila", coordinates: [27.2645, 92.4159], services: ["ambulance"] },
-  { id: "sample-pasighat-ambulance", name: "Example ambulance provider", town: "Pasighat", coordinates: [28.0665, 95.3268], services: ["ambulance"] },
-  { id: "sample-pasighat-blood", name: "Example blood-service provider", town: "Pasighat", coordinates: [28.073, 95.333], services: ["blood"] },
-  { id: "sample-aalo-ambulance", name: "Example ambulance provider", town: "Aalo", coordinates: [28.1683, 94.8007], services: ["ambulance"] },
-  { id: "sample-roing-ambulance", name: "Example ambulance provider", town: "Roing", coordinates: [28.1482, 95.8410], services: ["ambulance"] },
-  { id: "sample-roing-blood", name: "Example blood-service provider", town: "Roing", coordinates: [28.155, 95.849], services: ["blood"] },
-  { id: "sample-tezu-ambulance", name: "Example ambulance provider", town: "Tezu", coordinates: [27.9258, 96.1650], services: ["ambulance"] },
+  { id: "facility-trihms", name: "Tomo Riba Institute of Health and Medical Sciences", town: "Naharlagun", district: "Papum Pare", coordinates: [27.1044, 93.6950], services: ["ambulance", "blood"] },
+  { id: "facility-rkmh", name: "Ramakrishna Mission Hospital", town: "Itanagar", district: "Papum Pare", coordinates: [27.0844, 93.6053], services: ["ambulance", "blood"] },
+  { id: "facility-ziro", name: "District Hospital, Ziro", town: "Ziro", district: "Lower Subansiri", coordinates: [27.5467, 93.8195], services: ["ambulance", "blood"] },
+  { id: "facility-tawang", name: "District Hospital, Tawang", town: "Tawang", district: "Tawang", coordinates: [27.5861, 91.8594], services: ["ambulance", "blood"] },
+  { id: "facility-pasighat", name: "Bakin Pertin General Hospital", town: "Pasighat", district: "East Siang", coordinates: [28.0665, 95.3268], services: ["ambulance", "blood"] },
+  { id: "facility-bomdila", name: "District Hospital, Bomdila", town: "Bomdila", district: "West Kameng", coordinates: [27.2645, 92.4159], services: ["ambulance", "blood"] },
+  { id: "facility-aalo", name: "District Hospital, Aalo", town: "Aalo", district: "West Siang", coordinates: [28.1683, 94.8007], services: ["ambulance", "blood"] },
+  { id: "facility-roing", name: "General Hospital, Roing", town: "Roing", district: "Lower Dibang Valley", coordinates: [28.1482, 95.8410], services: ["ambulance", "blood"] },
+  { id: "facility-tezu", name: "District Hospital, Tezu", town: "Tezu", district: "Lohit", coordinates: [27.9258, 96.1650], services: ["ambulance", "blood"] },
 ];
 
 const storageKey = "hillpulse-mesh-demo-v1";
+const sessionKey = "hillpulse-mesh-session-v1";
 const state = {
   service: "ambulance",
   locationName: "Itanagar",
@@ -38,10 +33,6 @@ const state = {
   radiusKm: 20,
   userSelectedGps: false,
   hasSelectedLocation: false,
-  map: null,
-  markerLayer: null,
-  radiusLayer: null,
-  userMarker: null,
   geoWatchId: null,
   toastTimeout: null,
 };
@@ -94,90 +85,30 @@ function matchingProviders(service) {
     .sort((left, right) => left.distance - right.distance);
 }
 
-function formatTown(provider) {
-  const savedFacilities = getSavedData().facilities || [];
-  if (savedFacilities.some((facility) => facility.id === provider.id)) {
-    return `${provider.town} · example listing`;
-  }
-  return `${provider.town} · example only`;
-}
-
-function renderResults() {
+function renderDirectory() {
+  const isBloodDirectory = state.service === "blood";
   const providers = matchingProviders(state.service);
-  const serviceLabel = state.service === "ambulance" ? "ambulance" : "blood-service";
-  const resultContainer = $("#providerResults");
-  $("#resultsTitle").textContent = state.service === "ambulance" ? "AMBULANCE EXAMPLES" : "BLOOD SERVICE EXAMPLES";
-  $("#resultsCount").textContent = `${providers.length} within ${state.radiusKm} km`;
-  $("#ambulanceLegendLabel").textContent = `${state.service === "ambulance" ? "Ambulance" : "Provider"} · example`;
+  const directory = $("#providerDirectory");
+  $("#directoryTitle").textContent = isBloodDirectory ? "Blood-service enquiry points" : "Nearby hospitals";
+  $("#directoryEyebrow").textContent = isBloodDirectory ? "ASK ABOUT BLOOD SERVICES" : "HOSPITAL DIRECTORY";
+  $("#directoryDescription").textContent = isBloodDirectory
+    ? "Contact a hospital directly to ask about blood donation services, eligibility and current availability."
+    : "Hospitals near your selected area. Contact each facility to confirm emergency and ambulance services.";
+  $("#directoryCount").textContent = `${providers.length} ${providers.length === 1 ? "listing" : "listings"} within ${state.radiusKm} km`;
 
   if (!providers.length) {
-    resultContainer.innerHTML = `<p class="no-results">No ${serviceLabel} examples within ${state.radiusKm} km of ${safeText(state.locationName)}.</p>`;
+    directory.innerHTML = `<p class="directory-empty">No listed facilities within ${state.radiusKm} km of ${safeText(state.locationName)}. Try a wider search radius or select another town.</p>`;
     return;
   }
 
-  resultContainer.innerHTML = providers.slice(0, 3).map((provider) => `
-    <div class="result-row">
-      <span class="result-icon ${state.service === "ambulance" ? "ambulance-result-icon" : "blood-result-icon"}" aria-hidden="true">
-        ${state.service === "ambulance" ? '<svg viewBox="0 0 24 24"><path d="M3 7.5h11.5v10H3zM14.5 11h3.8l2.7 3v3.5h-6.5zM7 10v5m-2.5-2.5h5"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M12 3.5S5.7 10 5.7 14.5a6.3 6.3 0 0 0 12.6 0C18.3 10 12 3.5 12 3.5Z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/></svg>'}
-      </span>
-      <span class="result-copy"><strong>${safeText(provider.name)}</strong><small>${safeText(formatTown(provider))}</small></span>
-      <span class="result-distance">${provider.distance.toFixed(1)} km</span>
-    </div>`).join("");
-}
-
-function markerIcon(service) {
-  const icon = service === "ambulance"
-    ? '<svg viewBox="0 0 24 24"><path d="M3 7.5h11.5v10H3zM14.5 11h3.8l2.7 3v3.5h-6.5zM7 10v5m-2.5-2.5h5"/></svg>'
-    : '<svg viewBox="0 0 24 24"><path d="M12 3.5S5.7 10 5.7 14.5a6.3 6.3 0 0 0 12.6 0C18.3 10 12 3.5 12 3.5Z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/></svg>';
-  return L.divIcon({ className: "", html: `<span class="provider-marker ${service}-marker">${icon}</span>`, iconSize: [25, 25], iconAnchor: [12, 12], popupAnchor: [0, -13] });
-}
-
-function refreshMapAndResults() {
-  renderResults();
-  if (!state.map) return;
-
-  state.markerLayer.clearLayers();
-  matchingProviders("ambulance").concat(matchingProviders("blood")).forEach((provider) => {
-    const service = provider.services.includes("ambulance") ? "ambulance" : "blood";
-    const marker = L.marker(provider.coordinates, { icon: markerIcon(service) });
-    marker.bindPopup(`<strong>${safeText(provider.name)}</strong><br>${safeText(formatTown(provider))}<br>Approx. ${provider.distance.toFixed(1)} km · example only`);
-    state.markerLayer.addLayer(marker);
-  });
-
-  state.radiusLayer.setLatLng(state.coordinates);
-  state.radiusLayer.setRadius(state.radiusKm * 1000);
-  if (state.hasSelectedLocation) {
-    state.map.setView(state.coordinates, state.userSelectedGps || state.radiusKm <= 10 ? 10 : 9);
-  } else {
-    state.map.fitBounds([[26.3, 91.3], [29.5, 97.5]], { padding: [30, 30], maxZoom: 7 });
-  }
-  if (state.userSelectedGps) {
-    state.userMarker = L.marker(state.coordinates, {
-      icon: L.divIcon({ className: "", html: '<span class="user-marker"></span>', iconSize: [20, 20], iconAnchor: [10, 10] }),
-      keyboard: true,
-      title: "Your shared location",
-    }).bindPopup("Your shared location · visible only in this browser");
-    state.markerLayer.addLayer(state.userMarker);
-  }
-  $("#mapStatus").textContent = `SHOWING EXAMPLE LOCATIONS · ${state.locationName.toUpperCase()}`;
-}
-
-function initMap() {
-  if (!window.L) {
-    $("#map").innerHTML = '<div class="map-fallback">The interactive map needs an internet connection to load. You can still browse the example location list.</div>';
-    return;
-  }
-
-  state.map = L.map("map", { scrollWheelZoom: false, zoomControl: false, attributionControl: true });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
-  }).addTo(state.map);
-  L.control.zoom({ position: "bottomleft" }).addTo(state.map);
-  state.markerLayer = L.featureGroup().addTo(state.map);
-  state.radiusLayer = L.circle(state.coordinates, { radius: state.radiusKm * 1000, color: "#718663", fillColor: "#9aad78", fillOpacity: 0.10, weight: 1, dashArray: "5 6" }).addTo(state.map);
-  refreshMapAndResults();
-  window.setTimeout(() => state.map.invalidateSize(), 100);
+  directory.innerHTML = providers.map((provider) => `
+    <article class="facility-card">
+      <div class="facility-card-top"><span class="facility-type">${isBloodDirectory ? "BLOOD SERVICE ENQUIRY" : "HOSPITAL"}</span><span class="facility-distance">${provider.distance.toFixed(1)} km · approximate</span></div>
+      <h3>${safeText(provider.name)}</h3>
+      <p class="facility-location">${safeText(provider.town)} · ${safeText(provider.district || "Arunachal Pradesh")} district</p>
+      <p class="facility-contact">${isBloodDirectory ? "Contact the facility to confirm donation services and availability." : "Contact the facility to confirm services and ambulance availability."}</p>
+      <a class="facility-search" href="https://www.google.com/search?q=${encodeURIComponent(`${provider.name} ${provider.town} official contact`)}" target="_blank" rel="noreferrer">Find contact details <span aria-hidden="true">↗</span></a>
+    </article>`).join("");
 }
 
 function showToast(message) {
@@ -206,6 +137,75 @@ function updateProfileUI() {
   $("#profileLabel").textContent = profile.name.split(/\s+/)[0];
 }
 
+function getDemoAccounts() {
+  const data = getSavedData();
+  const accounts = [];
+  if (data.profile) {
+    accounts.push({ id: "community-profile", name: data.profile.name, role: "community", isProfile: true });
+  }
+  (data.providerApplications || []).forEach((application) => {
+    accounts.push({ id: application.id, name: application.name, role: application.role, isProfile: false });
+  });
+  return accounts;
+}
+
+function getActiveDemoAccount() {
+  try {
+    const activeId = sessionStorage.getItem(sessionKey);
+    return getDemoAccounts().find((account) => account.id === activeId) || null;
+  } catch {
+    return null;
+  }
+}
+
+function setDemoSession(accountId) {
+  try {
+    sessionStorage.setItem(sessionKey, accountId);
+    updateAccountUI();
+    return true;
+  } catch {
+    showToast("Demo session storage is unavailable in this browser.");
+    return false;
+  }
+}
+
+function updateAccountUI() {
+  const account = getActiveDemoAccount();
+  $("#loginButton").hidden = Boolean(account);
+  $("#signupButton").hidden = Boolean(account);
+  $("#profileButton").hidden = !account;
+  $("#logoutButton").hidden = !account;
+  if (!account) return;
+
+  const initials = account.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+  $("#profileInitials").textContent = initials || "HP";
+  $("#profileLabel").textContent = account.isProfile ? "My profile" : `${account.role} · demo`;
+  $("#profileButton").setAttribute("aria-label", account.isProfile ? "Open your profile" : `Demo account for ${account.name}; pending verification`);
+}
+
+function openDemoLogin() {
+  const accounts = getDemoAccounts();
+  const select = $("#loginAccount");
+  select.innerHTML = accounts.length
+    ? '<option value="">Choose a local demo profile</option>' + accounts.map((account) => `<option value="${safeText(account.id)}">${safeText(account.name)} · ${safeText(account.role)}${account.isProfile ? "" : " · pending verification"}</option>`).join("")
+    : '<option value="">No demo profiles found</option>';
+  $("#loginSubmit").disabled = accounts.length === 0;
+  openDialog($("#loginDialog"));
+}
+
+function openProfileEditor() {
+  const profile = getSavedData().profile;
+  const isEditing = Boolean(profile);
+  $("#personName").value = profile?.name || "";
+  $("#personDob").value = profile?.dateOfBirth || "";
+  const age = calculateAge($("#personDob").value);
+  $("#personAge").value = age === "" ? "" : `${age} years`;
+  $("#personRole").value = profile?.role || "seeker";
+  $("#profileTitle").textContent = isEditing ? "Edit your profile." : "Welcome to the mesh.";
+  $("#profileSubmitLabel").textContent = isEditing ? "Save changes" : "Continue to the demo";
+  openDialog($("#profileDialog"));
+}
+
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return "";
   const birthDate = new Date(`${dateOfBirth}T00:00:00`);
@@ -222,7 +222,7 @@ function setService(service) {
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
-  renderResults();
+  renderDirectory();
 }
 
 function setTown(name) {
@@ -243,8 +243,7 @@ function setTown(name) {
   state.userSelectedGps = false;
   state.hasSelectedLocation = true;
   $("#locationSearch").value = townKey;
-  $("#mapStatus").textContent = `SHOWING EXAMPLE LOCATIONS · ${townKey.toUpperCase()}`;
-  refreshMapAndResults();
+  renderDirectory();
 }
 
 function updateGpsButton(isSharing) {
@@ -267,7 +266,7 @@ function stopGps(showNotice = true) {
     $("#locationSearch").value = state.locationName;
   }
   updateGpsButton(false);
-  refreshMapAndResults();
+  renderDirectory();
   if (showNotice && wasSharing) showToast("Live location sharing stopped.");
 }
 
@@ -290,10 +289,9 @@ function startGps() {
       state.hasSelectedLocation = true;
       state.locationName = "Your live location";
       $("#locationSearch").value = "Your live location";
-      $("#mapStatus").textContent = "LIVE LOCATION · EXAMPLE PROVIDERS ONLY";
       $("#gpsButton").removeAttribute("aria-busy");
       updateGpsButton(true);
-      refreshMapAndResults();
+      renderDirectory();
       if (isFirstLocation) showToast("Live location is shared in this browser. Select the location button to stop.");
     }, (error) => {
       if (state.geoWatchId !== null) navigator.geolocation.clearWatch(state.geoWatchId);
@@ -306,7 +304,7 @@ function startGps() {
         $("#locationSearch").value = state.locationName;
       }
       updateGpsButton(false);
-      refreshMapAndResults();
+      renderDirectory();
       const message = error.code === 1 ? "Location permission wasn't granted or was revoked. Choose a town or allow location in your browser settings." : "Couldn't update your live location. Choose a town or try sharing location again.";
       showToast(message);
     }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
@@ -321,12 +319,23 @@ function startGps() {
 function updateBloodProviders() {
   const select = $("#bloodHospital");
   const providers = matchingProviders("blood");
-  select.innerHTML = '<option value="">Choose an example provider</option>' + providers.map((provider) => `<option value="${safeText(provider.id)}">${safeText(provider.name)} · ${safeText(provider.town)} · ${provider.distance.toFixed(1)} km (example)</option>`).join("");
+  select.innerHTML = '<option value="">Choose a nearby hospital</option>' + providers.map((provider) => `<option value="${safeText(provider.id)}">${safeText(provider.name)} · ${safeText(provider.town)} · ${provider.distance.toFixed(1)} km (approx.)</option>`).join("");
+  updateBloodRequesters();
+}
+
+function updateBloodRequesters() {
+  const select = $("#bloodRequester");
+  const applications = getSavedData().providerApplications || [];
+  select.innerHTML = '<option value="community">Community member</option>' + applications.map((application) => `<option value="${safeText(application.id)}">${safeText(application.name)} · ${safeText(application.role)} · pending verification</option>`).join("");
+}
+
+function openBloodRequest() {
+  setService("blood");
+  updateBloodProviders();
+  openDialog($("#bloodDialog"));
 }
 
 function initialize() {
-  initMap();
-
   document.querySelectorAll(".service-option").forEach((button) => button.addEventListener("click", () => setService(button.dataset.service)));
   $("#locationSearch").addEventListener("change", (event) => setTown(event.target.value));
   $("#locationSearch").addEventListener("keydown", (event) => {
@@ -339,18 +348,45 @@ function initialize() {
   $("#radiusRange").addEventListener("input", (event) => {
     state.radiusKm = Number(event.target.value);
     $("#radiusValue").textContent = `${state.radiusKm} km`;
-    $(".legend-radius").innerHTML = `<i></i>${state.radiusKm} km`;
-    refreshMapAndResults();
+    renderDirectory();
   });
-  $("#mapRefresh").addEventListener("click", refreshMapAndResults);
 
-  $("#profileButton").addEventListener("click", () => {
-    const profile = getSavedData().profile;
-    if (profile) {
-      showToast(`Demo profile for ${profile.name}. Stored in this browser only.`);
+  $("#loginButton").addEventListener("click", openDemoLogin);
+  $("#signupButton").addEventListener("click", () => {
+    if (getSavedData().profile) {
+      openDemoLogin();
       return;
     }
-    openDialog($("#profileDialog"));
+    openProfileEditor();
+  });
+  $("#profileButton").addEventListener("click", () => {
+    const account = getActiveDemoAccount();
+    if (account?.isProfile) {
+      openProfileEditor();
+      return;
+    }
+    if (account) showToast("Provider access is pending review and is not verified in this demo.");
+  });
+  $("#logoutButton").addEventListener("click", () => {
+    try {
+      sessionStorage.removeItem(sessionKey);
+      updateAccountUI();
+      showToast("You have left the demo session.");
+    } catch {
+      showToast("Could not clear the demo session in this browser.");
+    }
+  });
+  $("#loginForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const account = getDemoAccounts().find((candidate) => candidate.id === $("#loginAccount").value);
+    if (!account) {
+      showToast("Choose an existing local demo profile or sign up first.");
+      return;
+    }
+    if (setDemoSession(account.id)) {
+      $("#loginDialog").close();
+      showToast("Demo session started. This is not a verified login.");
+    }
   });
   $("#profileForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -361,11 +397,13 @@ function initialize() {
       return;
     }
     if (form.reportValidity()) {
+      const isEditing = Boolean(getSavedData().profile);
       const saved = saveData("profile", { name: $("#personName").value.trim(), dateOfBirth, age: calculateAge(dateOfBirth), role: $("#personRole").value });
       if (saved) {
         $("#profileDialog").close();
-        updateProfileUI();
-        showToast("Demo profile saved in this browser only.");
+        setDemoSession("community-profile");
+        updateAccountUI();
+        showToast(isEditing ? "Profile updated on this device." : "Demo profile saved in this browser only.");
       }
     }
   });
@@ -380,10 +418,10 @@ function initialize() {
       $("#locationConfirmStatus").textContent = state.userSelectedGps ? "Location shared" : "Area selected";
       openDialog($("#ambulanceDialog"));
     } else {
-      updateBloodProviders();
-      openDialog($("#bloodDialog"));
+      openBloodRequest();
     }
   });
+  $("#donorRequestButton").addEventListener("click", openBloodRequest);
   $("#ambulanceForm").addEventListener("submit", (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
@@ -403,31 +441,77 @@ function initialize() {
     if (event.currentTarget.files.length) showToast("Your photo has not been uploaded or shared.");
   });
 
-  $("#bloodDate").min = new Date().toISOString().slice(0, 10);
   $("#bloodForm").addEventListener("submit", (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
     const selectedProvider = matchingProviders("blood").find((provider) => provider.id === $("#bloodHospital").value);
     if (!selectedProvider) {
-      showToast("Choose an example provider within your selected search radius.");
+      showToast("Choose a nearby hospital within your selected search radius.");
       return;
     }
+    const requesterId = $("#bloodRequester").value;
+    const requester = (getSavedData().providerApplications || []).find((application) => application.id === requesterId);
     const saved = saveData("bloodRequests", [...(getSavedData().bloodRequests || []), {
       id: `DEMO-${Date.now().toString(36).toUpperCase()}`,
       town: state.locationName,
       bloodGroup: $("#bloodGroup").value,
-      requestedDate: $("#bloodDate").value,
+      unitsNeeded: Number($("#bloodUnits").value),
+      urgency: $("#bloodUrgency").value,
       provider: selectedProvider.name,
+      requesterId: requester?.id || null,
+      requesterRole: requester?.role || "community",
+      requestStatus: "local-demo-only",
       createdAt: new Date().toISOString(),
     }]);
     if (saved) {
       $("#bloodDialog").close();
       event.currentTarget.reset();
-      showConfirmation("Your sample blood-service inquiry was saved only in this browser. It was not sent to the example provider, and no visit or inventory has been confirmed. Please call a provider directly.");
+      showConfirmation("Your demo donor request was saved only in this browser. No donor or hospital was notified, and no blood has been reserved. Contact the selected hospital directly; call 112 for an immediate emergency.", "NOT SENT · DEMO ONLY");
     }
   });
 
-  $("#providerButton").addEventListener("click", () => openDialog($("#providerDialog")));
+  $("#providerButton").addEventListener("click", () => openDialog($("#providerAccessDialog")));
+  $("#bloodStaffSignup").addEventListener("click", () => {
+    $("#bloodDialog").close();
+    openDialog($("#providerAccessDialog"));
+  });
+  $("#accessRole").addEventListener("change", (event) => {
+    const registration = {
+      hospital: ["Facility registration number", "Relevant facility registration"],
+      doctor: ["Medical council registration number", "Your medical council registration"],
+      nurse: ["Nursing council registration number", "Your nursing council registration"],
+    }[event.currentTarget.value];
+    $("#accessRegistrationLabel").textContent = registration[0];
+    $("#accessRegistration").placeholder = registration[1];
+  });
+  $("#providerAccessForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const selectedTown = Object.keys(towns).find((town) => town.toLowerCase() === $("#accessTown").value.trim().toLowerCase());
+    if (!selectedTown) {
+      showToast("Choose a listed Arunachal Pradesh town.");
+      return;
+    }
+    const application = {
+      id: `DEMO-ACCESS-${Date.now().toString(36).toUpperCase()}`,
+      role: $("#accessRole").value,
+      name: $("#accessName").value.trim(),
+      facility: $("#accessFacility").value.trim(),
+      registrationNumber: $("#accessRegistration").value.trim(),
+      town: selectedTown,
+      workEmail: $("#accessEmail").value.trim(),
+      status: "pending-verification-demo",
+      createdAt: new Date().toISOString(),
+    };
+    const saved = saveData("providerApplications", [...(getSavedData().providerApplications || []), application]);
+    if (saved) {
+      $("#providerAccessDialog").close();
+      form.reset();
+      updateBloodRequesters();
+      showConfirmation("Your provider access application was saved only in this browser. It was not sent to an administrator, verified, or activated. You cannot use this prototype to submit a genuine clinical request.", "NOT SENT · PENDING DEMO");
+    }
+  });
   $("#providerForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -455,7 +539,7 @@ function initialize() {
     if (saved) {
       $("#providerDialog").close();
       form.reset();
-      refreshMapAndResults();
+      renderDirectory();
       showConfirmation("Your example listing was saved in this browser only. It has not been verified, published, or shared with care seekers.", "NOT PUBLISHED · DEMO ONLY");
     }
   });
