@@ -270,16 +270,15 @@ function updateBloodProviders() {
   const select = $("#bloodHospital");
   const providers = matchingProviders("blood");
   select.innerHTML = '<option value="">Choose a nearby hospital</option>' + providers.map((provider) => `<option value="${safeText(provider.id)}">${safeText(provider.name)} · ${safeText(provider.town)} · ${provider.distance.toFixed(1)} km (approx.)</option>`).join("");
-  updateBloodRequesters();
-}
-
-function updateBloodRequesters() {
-  const select = $("#bloodRequester");
-  const applications = getSavedData().providerApplications || [];
-  select.innerHTML = '<option value="community">Community member</option>' + applications.map((application) => `<option value="${safeText(application.id)}">${safeText(application.name)} · ${safeText(application.role)} · pending verification</option>`).join("");
+  $("#bloodRequesterDisplay").textContent = `Submitting as ${state.currentUser.name} · ${state.currentUser.role}${state.currentUser.status === "verified" ? "" : " · pending verification"}.`;
 }
 
 function openBloodRequest() {
+  if (!state.currentUser) {
+    showToast("Log in to submit a blood request.");
+    openLogin();
+    return;
+  }
   setService("blood");
   updateBloodProviders();
   openDialog($("#bloodDialog"));
@@ -301,44 +300,36 @@ function initialize() {
     renderDirectory();
   });
 
-  $("#loginButton").addEventListener("click", openDemoLogin);
-  $("#signupButton").addEventListener("click", () => {
-    if (getSavedData().profile) {
-      openDemoLogin();
-      return;
-    }
-    openProfileEditor();
-  });
-  $("#profileButton").addEventListener("click", () => {
-    const account = getActiveDemoAccount();
-    if (account?.isProfile) {
-      openProfileEditor();
-      return;
-    }
-    if (account) showToast("Provider access is pending review and is not verified in this demo.");
-  });
-  $("#logoutButton").addEventListener("click", () => {
+  $("#loginButton").addEventListener("click", openLogin);
+  $("#signupButton").addEventListener("click", openProfileEditor);
+  $("#profileButton").addEventListener("click", openProfileEditor);
+  $("#logoutButton").addEventListener("click", async () => {
     try {
-      sessionStorage.removeItem(sessionKey);
+      await apiRequest("/api/auth/logout", { method: "POST" });
+      state.currentUser = null;
       updateAccountUI();
-      showToast("You have left the demo session.");
-    } catch {
-      showToast("Could not clear the demo session in this browser.");
+      showToast("You have signed out.");
+    } catch (error) {
+      showToast(error.message);
     }
   });
-  $("#loginForm").addEventListener("submit", (event) => {
+  $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const account = getDemoAccounts().find((candidate) => candidate.id === $("#loginAccount").value);
-    if (!account) {
-      showToast("Choose an existing local demo profile or sign up first.");
-      return;
-    }
-    if (setDemoSession(account.id)) {
+    if (!event.currentTarget.reportValidity()) return;
+    try {
+      const { user } = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: $("#loginEmail").value.trim(), password: $("#loginPassword").value }),
+      });
+      state.currentUser = user;
+      updateAccountUI();
       $("#loginDialog").close();
-      showToast("Demo session started. This is not a verified login.");
+      showToast(user.status === "verified" ? "Signed in." : "Signed in. Your account is not verified.");
+    } catch (error) {
+      showToast(error.message);
     }
   });
-  $("#profileForm").addEventListener("submit", (event) => {
+  $("#profileForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const dateOfBirth = $("#personDob").value;
@@ -346,15 +337,28 @@ function initialize() {
       showToast("Please enter a date of birth in the past.");
       return;
     }
-    if (form.reportValidity()) {
-      const isEditing = Boolean(getSavedData().profile);
-      const saved = saveData("profile", { name: $("#personName").value.trim(), dateOfBirth, age: calculateAge(dateOfBirth), role: $("#personRole").value });
-      if (saved) {
-        $("#profileDialog").close();
-        setDemoSession("community-profile");
-        updateAccountUI();
-        showToast(isEditing ? "Profile updated on this device." : "Demo profile saved in this browser only.");
-      }
+    if (!form.reportValidity()) return;
+    const isEditing = state.profileMode === "edit";
+    try {
+      const result = await apiRequest(isEditing ? "/api/me" : "/api/auth/signup", {
+        method: isEditing ? "PUT" : "POST",
+        body: JSON.stringify(isEditing ? {
+          name: $("#personName").value.trim(),
+          dateOfBirth,
+        } : {
+          name: $("#personName").value.trim(),
+          dateOfBirth,
+          email: $("#personEmail").value.trim(),
+          password: $("#personPassword").value,
+          role: "community",
+        }),
+      });
+      state.currentUser = result.user;
+      updateAccountUI();
+      $("#profileDialog").close();
+      showToast(isEditing ? "Profile updated." : "Account created. You are signed in.");
+    } catch (error) {
+      showToast(error.message);
     }
   });
   $("#personDob").addEventListener("input", (event) => {
@@ -363,6 +367,11 @@ function initialize() {
   });
 
   $("#seekerButton").addEventListener("click", () => {
+    if (!state.currentUser) {
+      showToast("Log in or create an account to submit a request.");
+      openLogin();
+      return;
+    }
     if (state.service === "ambulance") {
       $("#ambulanceLocation").textContent = state.locationName;
       $("#locationConfirmStatus").textContent = state.userSelectedGps ? "Location shared" : "Area selected";
@@ -372,26 +381,26 @@ function initialize() {
     }
   });
   $("#donorRequestButton").addEventListener("click", openBloodRequest);
-  $("#ambulanceForm").addEventListener("submit", (event) => {
+  $("#ambulanceForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
-    const saved = saveData("ambulanceRequests", [...(getSavedData().ambulanceRequests || []), {
-      id: `DEMO-${Date.now().toString(36).toUpperCase()}`,
-      town: state.locationName,
-      note: $("#emergencyNote").value.trim(),
-      createdAt: new Date().toISOString(),
-    }]);
-    if (saved) {
+    try {
+      const { request } = await apiRequest("/api/ambulance-requests", {
+        method: "POST",
+        body: JSON.stringify({ town: state.locationName, note: $("#emergencyNote").value.trim() }),
+      });
       $("#ambulanceDialog").close();
       event.currentTarget.reset();
-      showConfirmation("A sample ambulance request was saved in this browser. It contains no GPS coordinates, was not sent to any provider, and has not arranged an ambulance. In an emergency, call 112.", "NOT SENT · DEMO ONLY");
+      showConfirmation(`Request ${request.id.slice(0, 8)} is stored as not dispatched. No ambulance was contacted. In an emergency, call 112.`, "STORED · NOT DISPATCHED");
+    } catch (error) {
+      showToast(error.message);
     }
   });
   $("#emergencyPhoto").addEventListener("change", (event) => {
     if (event.currentTarget.files.length) showToast("Your photo has not been uploaded or shared.");
   });
 
-  $("#bloodForm").addEventListener("submit", (event) => {
+  $("#bloodForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
     const selectedProvider = matchingProviders("blood").find((provider) => provider.id === $("#bloodHospital").value);
@@ -399,24 +408,21 @@ function initialize() {
       showToast("Choose a nearby hospital within your selected search radius.");
       return;
     }
-    const requesterId = $("#bloodRequester").value;
-    const requester = (getSavedData().providerApplications || []).find((application) => application.id === requesterId);
-    const saved = saveData("bloodRequests", [...(getSavedData().bloodRequests || []), {
-      id: `DEMO-${Date.now().toString(36).toUpperCase()}`,
-      town: state.locationName,
-      bloodGroup: $("#bloodGroup").value,
-      unitsNeeded: Number($("#bloodUnits").value),
-      urgency: $("#bloodUrgency").value,
-      provider: selectedProvider.name,
-      requesterId: requester?.id || null,
-      requesterRole: requester?.role || "community",
-      requestStatus: "local-demo-only",
-      createdAt: new Date().toISOString(),
-    }]);
-    if (saved) {
+    try {
+      const result = await apiRequest("/api/blood-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          facilityId: selectedProvider.id,
+          bloodGroup: $("#bloodGroup").value,
+          units: Number($("#bloodUnits").value),
+          urgency: $("#bloodUrgency").value,
+        }),
+      });
       $("#bloodDialog").close();
       event.currentTarget.reset();
-      showConfirmation("Your demo donor request was saved only in this browser. No donor or hospital was notified, and no blood has been reserved. Contact the selected hospital directly; call 112 for an immediate emergency.", "NOT SENT · DEMO ONLY");
+      showConfirmation(`${result.message} Request ID: ${result.request.id.slice(0, 8)}. Contact the selected hospital directly; call 112 for an immediate emergency.`, result.request.status === "pending_verification" ? "STORED · PENDING VERIFICATION" : "STORED · NOT DISPATCHED");
+    } catch (error) {
+      showToast(error.message);
     }
   });
 
